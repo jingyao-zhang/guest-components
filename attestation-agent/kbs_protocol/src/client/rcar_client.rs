@@ -4,10 +4,12 @@
 //
 
 use std::time::Duration;
+use std::process::Command;
 
 use anyhow::{bail, Context};
 use async_trait::async_trait;
 use kbs_types::{Attestation, Challenge, ErrorInformation, Request, Response};
+use kbs_types::{CombinedAttestation, TeeEvidence, CustomClaims, NestedTEE};
 use log::{debug, warn};
 use resource_uri::ResourceUri;
 use serde::Deserialize;
@@ -30,6 +32,22 @@ const RCAR_MAX_ATTEMPT: i32 = 5;
 
 /// The interval (seconds) between RCAR handshake retries.
 const RCAR_RETRY_TIMEOUT_SECOND: u64 = 1;
+
+fn fetch_h100_evidence() -> Result<(String, String)> {
+    let output = Command::new("/home/jzhan502/miniconda3/envs/nvtrust/bin/python3")
+        .arg("/home/jzhan502/nvtrust/guest_tools/attestation_sdk/tests/LocalGPUTest.py")
+        // .arg("/home/jzhan502/nvtrust/guest_tools/attestation_sdk/tests/RemoteGPUTest.py")
+        .output()
+        .expect("Failed to execute command");
+
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+    
+        // debug!("stdout: {}", stdout);
+        // debug!("stderr: {}", stderr);
+    
+    Ok((stdout, stderr))
+}
 
 #[derive(Deserialize, Debug, Clone)]
 struct AttestationResponseData {
@@ -121,7 +139,7 @@ impl KbsClient<Box<dyn EvidenceProvider>> {
 
         debug!("send auth request to {auth_endpoint}");
 
-        let challenge = self
+        let mut challenge = self
             .http_client
             .post(auth_endpoint)
             .header("Content-Type", "application/json")
@@ -131,24 +149,82 @@ impl KbsClient<Box<dyn EvidenceProvider>> {
             .json::<Challenge>()
             .await?;
 
+        // -----------------------------------------------------------
+        // -----------------------------------------------------------
+
+        let (device_report, stderr) = fetch_h100_evidence()?;
+        // debug!("stdout-caller: {}", stdout);
+        debug!("stderr-caller: {}", stderr);
+        debug!("get challenge: {challenge:#?}");
+
+        // -----------------------------------------------------------
+        let nested_tee = NestedTEE {
+            attestation_report: device_report.clone(),
+        };
+        let custom_claims = CustomClaims {
+            nonce: challenge.nonce.clone(),
+            inner_tee_pubkey: self.tee_key.export_pubkey()?,
+            nested_tee: nested_tee,
+        };
+        // -----------------------------------------------------------
+
+
+
+        // Assuming `device_report` is a String and `challenge.nonce` is also a String or similar
+        let mut hasher = Sha384::new();
+        hasher.update(device_report.as_bytes()); // Hash `device_report`
+        hasher.update(challenge.nonce.as_bytes()); // Hash `challenge.nonce`
+
+        // Finalize the hash and convert to a Vec<u8>
+        let result_hash_bytes = hasher.finalize().to_vec();
+
+        // Encode the final hash as base64
+        let result_hash_base64 = base64::encode(result_hash_bytes);
+
+        debug!("Base64 Hashed output: {}", result_hash_base64);
+
+        // Assign the base64 string to challenge.nonce
+        challenge.nonce = result_hash_base64;
+
+        // -----------------------------------------------------------
+        // -----------------------------------------------------------
+
         debug!("get challenge: {challenge:#?}");
         let tee_pubkey = self.tee_key.export_pubkey()?;
         let materials = vec![tee_pubkey.k_mod.as_bytes(), tee_pubkey.k_exp.as_bytes()];
         let evidence = self.generate_evidence(challenge.nonce, materials).await?;
         debug!("get evidence with challenge: {evidence}");
 
-        let attest_endpoint = format!("{}/{KBS_PREFIX}/attest", self.kbs_host_url);
-        let attest = Attestation {
-            tee_pubkey,
-            tee_evidence: evidence,
+        // -----------------------------------------------------------
+
+        let tee_evidence = TeeEvidence {
+            tee_type: self.provider.get_tee_type().await?,
+            // tee_type: "Sample".to_string(),
+            cpu_evidence: evidence,
+            custom_claims: custom_claims,
         };
+
+        let attest_endpoint = format!("{}/{KBS_PREFIX}/attest", self.kbs_host_url);
+
+        let combined_attest = CombinedAttestation {
+            tee_pubkey: tee_pubkey,
+            tee_evidence: tee_evidence,
+        };
+        // -----------------------------------------------------------
+
+        // let attest_endpoint = format!("{}/{KBS_PREFIX}/attest", self.kbs_host_url);
+        // let attest = Attestation {
+        //     tee_pubkey,
+        //     tee_evidence: evidence,
+        // };
 
         debug!("send attest request.");
         let attest_response = self
             .http_client
             .post(attest_endpoint)
             .header("Content-Type", "application/json")
-            .json(&attest)
+            .json(&combined_attest)
+            // .json(&attest)
             .send()
             .await?;
 

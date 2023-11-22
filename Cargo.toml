@@ -38,7 +38,8 @@ hex = "0.4.3"
 hmac = "0.12.1"
 jwt-simple = "0.11"
 # TODO: change it to "0.5", once released.
-kbs-types = { git = "https://github.com/virtee/kbs-types", rev = "c90df0e" }
+# kbs-types = { git = "https://github.com/virtee/kbs-types", rev = "c90df0e" }
+kbs-types = { path = "../kbs-types/" }
 lazy_static = "1.4.0"
 log = "0.4.14"
 openssl = "0.10"
