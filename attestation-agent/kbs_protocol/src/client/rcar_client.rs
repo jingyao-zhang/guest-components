@@ -153,9 +153,11 @@ impl KbsClient<Box<dyn EvidenceProvider>> {
         // -----------------------------------------------------------
 
         let (device_report, stderr) = fetch_h100_evidence()?;
+
         // debug!("stdout-caller: {}", stdout);
-        debug!("stderr-caller: {}", stderr);
-        debug!("get challenge: {challenge:#?}");
+        // debug!("stderr-caller: {}", stderr);
+        debug!("Successfully get device_report from H100");
+        // debug!("get challenge: {challenge:#?}");
 
         // -----------------------------------------------------------
         let nested_tee = NestedTEE {
@@ -181,7 +183,7 @@ impl KbsClient<Box<dyn EvidenceProvider>> {
         // Encode the final hash as base64
         let result_hash_base64 = base64::encode(result_hash_bytes);
 
-        debug!("Base64 Hashed output: {}", result_hash_base64);
+        // debug!("Base64 Hashed output: {}", result_hash_base64);
 
         // Assign the base64 string to challenge.nonce
         challenge.nonce = result_hash_base64;
@@ -189,14 +191,17 @@ impl KbsClient<Box<dyn EvidenceProvider>> {
         // -----------------------------------------------------------
         // -----------------------------------------------------------
 
-        debug!("get challenge: {challenge:#?}");
+        debug!("Finish combining device_report and challenge.nonce");
+        // debug!("get challenge: {challenge:#?}");
         let tee_pubkey = self.tee_key.export_pubkey()?;
         let materials = vec![tee_pubkey.k_mod.as_bytes(), tee_pubkey.k_exp.as_bytes()];
         let evidence = self.generate_evidence(challenge.nonce, materials).await?;
-        debug!("get evidence with challenge: {evidence}");
+
+        // debug!("get evidence with challenge: {evidence}");
 
         // -----------------------------------------------------------
-
+        debug!("Successfully get cpu_evidence");
+        debug!("Build tee_evidence with cpu_evidence and custom_claims");
         let tee_evidence = TeeEvidence {
             tee_type: self.provider.get_tee_type().await?,
             // tee_type: "Sample".to_string(),
@@ -245,6 +250,8 @@ impl KbsClient<Box<dyn EvidenceProvider>> {
                 );
             }
         }
+
+        debug!("Token received");
 
         Ok(())
     }
