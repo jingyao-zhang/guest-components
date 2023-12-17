@@ -16,7 +16,6 @@ use serde::Deserialize;
 use sha2::{Digest, Sha384};
 
 use std::env;
-use std::process::Command;
 use std::path::PathBuf;
 
 use crate::{
