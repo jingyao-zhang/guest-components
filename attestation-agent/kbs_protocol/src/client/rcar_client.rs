@@ -37,7 +37,8 @@ const RCAR_RETRY_TIMEOUT_SECOND: u64 = 1;
 
 fn fetch_h100_evidence() -> Result<(String, String)> {
     // 获取 HOME 环境变量
-    let home_dir = env::var("HOME").unwrap();
+    let user = env::var("SUDO_USER").unwrap_or_else(|_| env::var("USER").unwrap());
+    let home_dir = format!("/home/{}", user);
     debug!("HOME: {}", home_dir);
 
     // 使用 HOME 环境变量构建路径
