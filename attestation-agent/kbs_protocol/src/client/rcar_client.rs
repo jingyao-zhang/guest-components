@@ -38,6 +38,7 @@ const RCAR_RETRY_TIMEOUT_SECOND: u64 = 1;
 fn fetch_h100_evidence() -> Result<(String, String)> {
     // 获取 HOME 环境变量
     let home_dir = env::var("HOME").unwrap();
+    debug!("HOME: {}", home_dir);
 
     // 使用 HOME 环境变量构建路径
     let python_path = format!("{}/miniconda3/envs/nvtrust/bin/python3", home_dir);
