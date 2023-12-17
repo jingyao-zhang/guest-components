@@ -6,6 +6,8 @@
 use std::time::Duration;
 use std::process::Command;
 
+use std::env;
+
 use anyhow::{bail, Context};
 use async_trait::async_trait;
 use kbs_types::{Attestation, Challenge, ErrorInformation, Request, Response};
@@ -34,11 +36,25 @@ const RCAR_MAX_ATTEMPT: i32 = 5;
 const RCAR_RETRY_TIMEOUT_SECOND: u64 = 1;
 
 fn fetch_h100_evidence() -> Result<(String, String)> {
-    let output = Command::new("/home/jzhan502/miniconda3/envs/nvtrust/bin/python3")
-        .arg("/home/jzhan502/nvtrust/guest_tools/attestation_sdk/tests/LocalGPUTest.py")
-        // .arg("/home/jzhan502/nvtrust/guest_tools/attestation_sdk/tests/RemoteGPUTest.py")
+    // 获取 HOME 环境变量
+    let home_dir = env::var("HOME").unwrap();
+
+    // 使用 HOME 环境变量构建路径
+    let python_path = format!("{}/miniconda3/envs/nvtrust/bin/python3", home_dir);
+    let script_path = format!("{}/nvtrust/guest_tools/attestation_sdk/tests/LocalGPUTest.py", home_dir);
+
+    // 执行命令
+    let output = Command::new(python_path)
+        .arg(script_path)
         .output()
         .expect("Failed to execute command");
+
+    
+    // let output = Command::new("/home/jzhan502/miniconda3/envs/nvtrust/bin/python3")
+    //     .arg("/home/jzhan502/nvtrust/guest_tools/attestation_sdk/tests/LocalGPUTest.py")
+    //     // .arg("/home/jzhan502/nvtrust/guest_tools/attestation_sdk/tests/RemoteGPUTest.py")
+    //     .output()
+    //     .expect("Failed to execute command");
 
         let stdout = String::from_utf8(output.stdout).unwrap();
         let stderr = String::from_utf8(output.stderr).unwrap();
