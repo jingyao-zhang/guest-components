@@ -34,8 +34,8 @@ const RCAR_MAX_ATTEMPT: i32 = 5;
 const RCAR_RETRY_TIMEOUT_SECOND: u64 = 1;
 
 fn fetch_h100_evidence() -> Result<(String, String)> {
-    let output = Command::new("/home/jzhan502/miniconda3/envs/nvtrust/bin/python3")
-        .arg("/home/jzhan502/nvtrust/guest_tools/attestation_sdk/tests/LocalGPUTest.py")
+    let output = Command::new("~/miniconda3/envs/nvtrust/bin/python3")
+        .arg("~/nvtrust/guest_tools/attestation_sdk/tests/LocalGPUTest.py")
         // .arg("/home/jzhan502/nvtrust/guest_tools/attestation_sdk/tests/RemoteGPUTest.py")
         .output()
         .expect("Failed to execute command");
