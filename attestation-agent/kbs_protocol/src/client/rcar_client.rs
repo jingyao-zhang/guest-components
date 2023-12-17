@@ -15,6 +15,9 @@ use resource_uri::ResourceUri;
 use serde::Deserialize;
 use sha2::{Digest, Sha384};
 
+use std::process::Command;
+use std::path::PathBuf;
+
 use crate::{
     api::KbsClientCapabilities,
     client::{
@@ -33,19 +36,26 @@ const RCAR_MAX_ATTEMPT: i32 = 5;
 /// The interval (seconds) between RCAR handshake retries.
 const RCAR_RETRY_TIMEOUT_SECOND: u64 = 1;
 
-fn fetch_h100_evidence() -> Result<(String, String)> {
-    let output = Command::new("~/miniconda3/envs/nvtrust/bin/python3")
-        .arg("~/nvtrust/guest_tools/attestation_sdk/tests/LocalGPUTest.py")
-        // .arg("/home/jzhan502/nvtrust/guest_tools/attestation_sdk/tests/RemoteGPUTest.py")
+fn fetch_h100_evidence() -> Result<(String, String), Box<dyn std::error::Error>> {
+    // 获取 HOME 环境变量
+    let home_dir = env::var("HOME")?;
+
+    // 构建 Python 和脚本的路径
+    let python_path = PathBuf::from(home_dir).join("miniconda3/envs/nvtrust/bin/python3");
+    let script_path = PathBuf::from(home_dir).join("nvtrust/guest_tools/attestation_sdk/tests/LocalGPUTest.py");
+
+    // 运行命令
+    let output = Command::new(python_path)
+        .arg(script_path)
         .output()
         .expect("Failed to execute command");
 
-        let stdout = String::from_utf8(output.stdout).unwrap();
-        let stderr = String::from_utf8(output.stderr).unwrap();
-    
-        // debug!("stdout: {}", stdout);
-        // debug!("stderr: {}", stderr);
-    
+    let stdout = String::from_utf8(output.stdout)?;
+    let stderr = String::from_utf8(output.stderr)?;
+
+    // debug!("stdout: {}", stdout);
+    // debug!("stderr: {}", stderr);
+
     Ok((stdout, stderr))
 }
 
